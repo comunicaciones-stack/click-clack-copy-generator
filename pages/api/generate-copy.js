@@ -1,13 +1,14 @@
-export const config = {
-  runtime: 'nodejs',
-};
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { messageType, notes, language, messageTypeLabel } = req.body;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+
+  if (!apiKey || apiKey.trim() === '') {
+    return res.status(500).json({ error: 'API key not configured. Please check Environment Variables in Vercel.' });
+  }
 
   const prompt = `You are a luxury hotel brand copywriter for Click Clack Hotels (Medellín, Bogotá). 
 
@@ -24,7 +25,6 @@ Examples of Click Clack tone:
 - "There's a place where no boredom can be found"
 - "From bath-tub to bar-hop: there are plenty of ways to refresh yourself behind our doors"
 - "Let the middle of the week taste the sweet of the weekend!"
-- "There's no issue with letting yourself go, The Click Clack was made for all creative and wandering minds"
 
 TASK: Generate 3 SHORT, DISTINCT copy options for a handwritten card message.
 Message Type: ${messageTypeLabel}
@@ -45,7 +45,8 @@ Return ONLY the 3 options, numbered 1, 2, 3. Each on its own line. NO explanatio
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+        'x-api-key': apiKey.trim(),
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
@@ -59,21 +60,17 @@ Return ONLY the 3 options, numbered 1, 2, 3. Each on its own line. NO explanatio
       }),
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Anthropic API error:', errorData);
-      return res.status(response.status).json({ error: 'Failed to generate copy' });
+      console.error('Anthropic API error:', data);
+      return res.status(response.status).json({ error: data.error?.message || 'Failed to generate copy' });
     }
 
-    const data = await response.json();
     const content = data.content[0].text;
-
-    return res.status(200).json({
-      success: true,
-      content,
-    });
+    return res.status(200).json({ success: true, content });
   } catch (error) {
     console.error('Error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error: ' + error.message });
   }
 }
