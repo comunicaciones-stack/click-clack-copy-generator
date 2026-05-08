@@ -1,4 +1,4 @@
-const apiKey = "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";
+const apiKey = "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";
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
